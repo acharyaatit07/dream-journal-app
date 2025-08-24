@@ -22,6 +22,7 @@ New-Item -Path "lib\features\auth\services" -ItemType Directory -Force | Out-Nul
 Write-Host "   ✅ Auth feature folders created" -ForegroundColor Green
 
 # Create dreams feature folders
+l
 Write-Host "📁 Creating dreams feature folders..." -ForegroundColor Yellow
 New-Item -Path "lib\features\dreams\models" -ItemType Directory -Force | Out-Null
 New-Item -Path "lib\features\dreams\screens" -ItemType Directory -Force | Out-Null
