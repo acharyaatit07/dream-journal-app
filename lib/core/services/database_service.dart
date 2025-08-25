@@ -43,7 +43,10 @@ class DatabaseService {
         tags TEXT,
         category TEXT,
         audio_file_path TEXT,
-        is_favorite INTEGER NOT NULL DEFAULT 0
+        is_favorite INTEGER NOT NULL DEFAULT 0,
+        bed_time TEXT,
+        wake_time TEXT,
+        dream_vividness INTEGER
       )
     ''');
   }

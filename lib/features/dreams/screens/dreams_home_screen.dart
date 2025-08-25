@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../analytics/screens/analytics_screen.dart';
 import '../models/dream.dart';
 import '../services/dreams_provider.dart';
 
@@ -17,6 +18,18 @@ class DreamsHomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text(AppConstants.appName),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.analytics_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AnalyticsScreen(),
+                ),
+              );
+            },
+            tooltip: 'Dream Analytics',
+          ),
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
