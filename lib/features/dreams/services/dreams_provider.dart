@@ -1,33 +1,35 @@
 // lib/features/dreams/services/dreams_provider.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/services/database_service.dart';
+import '../../../core/services/storage_service.dart';
+import '../../analytics/models/dream_analytics.dart';
+import '../../analytics/services/analytics_service.dart';
 import '../models/dream.dart';
 
-// Database service provider
-final databaseServiceProvider = Provider<DatabaseService>((ref) {
-  return DatabaseService();
+// Storage service provider - uses platform-appropriate storage
+final storageServiceProvider = Provider<StorageService>((ref) {
+  return StorageServiceFactory.createStorageService();
 });
 
 // Dreams list provider
 final dreamsProvider =
     StateNotifierProvider<DreamsNotifier, AsyncValue<List<Dream>>>((ref) {
-  final databaseService = ref.watch(databaseServiceProvider);
-  return DreamsNotifier(databaseService);
+  final storageService = ref.watch(storageServiceProvider);
+  return DreamsNotifier(storageService);
 });
 
 // Dreams notifier class
 class DreamsNotifier extends StateNotifier<AsyncValue<List<Dream>>> {
-  final DatabaseService _databaseService;
+  final StorageService _storageService;
 
-  DreamsNotifier(this._databaseService) : super(const AsyncValue.loading()) {
+  DreamsNotifier(this._storageService) : super(const AsyncValue.loading()) {
     loadDreams();
   }
 
   Future<void> loadDreams() async {
     try {
       state = const AsyncValue.loading();
-      final dreams = await _databaseService.getAllDreams();
+      final dreams = await _storageService.getAllDreams();
       state = AsyncValue.data(dreams);
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
@@ -36,7 +38,7 @@ class DreamsNotifier extends StateNotifier<AsyncValue<List<Dream>>> {
 
   Future<void> addDream(Dream dream) async {
     try {
-      await _databaseService.insertDream(dream);
+      await _storageService.insertDream(dream);
       await loadDreams(); // Reload all dreams
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
@@ -45,7 +47,7 @@ class DreamsNotifier extends StateNotifier<AsyncValue<List<Dream>>> {
 
   Future<void> updateDream(Dream dream) async {
     try {
-      await _databaseService.updateDream(dream);
+      await _storageService.updateDream(dream);
       await loadDreams(); // Reload all dreams
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
@@ -54,7 +56,7 @@ class DreamsNotifier extends StateNotifier<AsyncValue<List<Dream>>> {
 
   Future<void> deleteDream(String id) async {
     try {
-      await _databaseService.deleteDream(id);
+      await _storageService.deleteDream(id);
       await loadDreams(); // Reload all dreams
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
@@ -67,28 +69,28 @@ class DreamsNotifier extends StateNotifier<AsyncValue<List<Dream>>> {
   }
 
   Future<List<Dream>> searchDreams(String query) async {
-    return await _databaseService.searchDreams(query);
+    return await _storageService.searchDreams(query);
   }
 
   Future<List<Dream>> getDreamsByCategory(String category) async {
-    return await _databaseService.getDreamsByCategory(category);
+    return await _storageService.getDreamsByCategory(category);
   }
 }
 
 // Individual dream provider
 final dreamProvider =
     FutureProvider.family<Dream?, String>((ref, dreamId) async {
-  final databaseService = ref.watch(databaseServiceProvider);
-  return await databaseService.getDreamById(dreamId);
+  final storageService = ref.watch(storageServiceProvider);
+  return await storageService.getDreamById(dreamId);
 });
 
 // Dream statistics provider
 final dreamStatsProvider = FutureProvider<DreamStats>((ref) async {
-  final databaseService = ref.watch(databaseServiceProvider);
+  final storageService = ref.watch(storageServiceProvider);
 
-  final totalDreams = await databaseService.getDreamCount();
-  final categoryCounts = await databaseService.getDreamCategoryCounts();
-  final averageMood = await databaseService.getAverageMoodRating();
+  final totalDreams = await storageService.getDreamCount();
+  final categoryCounts = await storageService.getDreamCategoryCounts();
+  final averageMood = await storageService.getAverageMoodRating();
 
   return DreamStats(
     totalDreams: totalDreams,
@@ -109,3 +111,17 @@ class DreamStats {
     required this.averageMood,
   });
 }
+
+// Analytics provider - calculates analytics from current dreams
+final analyticsProvider = Provider<AsyncValue<DreamAnalytics>>((ref) {
+  final dreamsAsync = ref.watch(dreamsProvider);
+
+  return dreamsAsync.when(
+    data: (dreams) {
+      final analytics = AnalyticsService.calculateAnalytics(dreams);
+      return AsyncValue.data(analytics);
+    },
+    loading: () => const AsyncValue.loading(),
+    error: (error, stack) => AsyncValue.error(error, stack),
+  );
+});
