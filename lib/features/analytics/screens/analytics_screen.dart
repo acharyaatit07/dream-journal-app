@@ -46,6 +46,8 @@ class AnalyticsScreen extends ConsumerWidget {
         children: [
           _buildOverviewCards(context, analytics),
           const SizedBox(height: 24),
+          _buildSleepPatternSection(context, analytics.sleepPatterns),
+          const SizedBox(height: 24),
           _buildCategoryChart(context, analytics),
           const SizedBox(height: 24),
           _buildInsightsSection(context, analytics),
@@ -373,6 +375,269 @@ class AnalyticsScreen extends ConsumerWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSleepPatternSection(
+      BuildContext context, SleepPatternAnalysis sleepPatterns) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Sleep Patterns',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: AppColors.textPrimaryLight,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+        const SizedBox(height: 16),
+
+        // Sleep Quality Correlation
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.borderLight, width: 0.5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.psychology, color: AppColors.accent, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Sleep Quality vs Dream Mood',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                sleepPatterns.qualityCorrelation.interpretation,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondaryLight,
+                    ),
+              ),
+              if (sleepPatterns
+                  .qualityCorrelation.sleepQualityToMoodMap.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: sleepPatterns
+                      .qualityCorrelation.sleepQualityToMoodMap.entries
+                      .map((entry) {
+                    final quality = entry.key;
+                    final mood = entry.value;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.getSleepQualityColor(quality)
+                            .withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: AppColors.getSleepQualityColor(quality)
+                              .withOpacity(0.3),
+                        ),
+                      ),
+                      child: Text(
+                        'Quality $quality → Mood ${mood.toStringAsFixed(1)}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.getSleepQualityColor(quality),
+                              fontWeight: FontWeight.w500,
+                            ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Dream Timing Analysis
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.borderLight, width: 0.5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.schedule, color: AppColors.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Dream Timing Patterns',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildTimingStatCard(
+                      context,
+                      'Most Common Time',
+                      '${sleepPatterns.timingAnalysis.mostCommonHour.toString().padLeft(2, '0')}:00',
+                      Icons.access_time,
+                      AppColors.accent,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildTimingStatCard(
+                      context,
+                      'Avg Sleep Duration',
+                      '${sleepPatterns.timingAnalysis.averageSleepDuration.toStringAsFixed(1)}h',
+                      Icons.hotel,
+                      AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                sleepPatterns.timingAnalysis.optimalSleepDuration,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondaryLight,
+                    ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Sleep Insights
+        if (sleepPatterns.sleepInsights.isNotEmpty) ...[
+          Text(
+            'Sleep Insights',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: 12),
+          ...sleepPatterns.sleepInsights.map((insight) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceLight,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.borderLight, width: 0.5),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child:
+                          Icon(insight.icon, color: AppColors.accent, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            insight.title,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            insight.description,
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: AppColors.textSecondaryLight,
+                                    ),
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'Action: ${insight.actionItem}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTimingStatCard(BuildContext context, String title, String value,
+      IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(height: 6),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondaryLight,
+                  fontWeight: FontWeight.w500,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),

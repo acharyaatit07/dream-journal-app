@@ -16,6 +16,9 @@ class Dream {
   final String? category;
   final String? audioFilePath;
   final bool isFavorite;
+  final DateTime? bedTime; // When user went to bed
+  final DateTime? wakeTime; // When user woke up
+  final int? dreamVividness; // 1-5 scale for how vivid/detailed the dream was
 
   const Dream({
     required this.id,
@@ -31,6 +34,9 @@ class Dream {
     this.category,
     this.audioFilePath,
     this.isFavorite = false,
+    this.bedTime,
+    this.wakeTime,
+    this.dreamVividness,
   });
 
   // Factory constructor to create a new dream
@@ -45,6 +51,9 @@ class Dream {
     String? category,
     String? audioFilePath,
     bool isFavorite = false,
+    DateTime? bedTime,
+    DateTime? wakeTime,
+    int? dreamVividness,
   }) {
     const uuid = Uuid();
     final now = DateTime.now();
@@ -62,6 +71,9 @@ class Dream {
       category: category,
       audioFilePath: audioFilePath,
       isFavorite: isFavorite,
+      bedTime: bedTime,
+      wakeTime: wakeTime,
+      dreamVividness: dreamVividness,
     );
   }
 
@@ -77,6 +89,9 @@ class Dream {
     String? category,
     String? audioFilePath,
     bool? isFavorite,
+    DateTime? bedTime,
+    DateTime? wakeTime,
+    int? dreamVividness,
   }) {
     return Dream(
       id: id,
@@ -92,6 +107,9 @@ class Dream {
       category: category ?? this.category,
       audioFilePath: audioFilePath ?? this.audioFilePath,
       isFavorite: isFavorite ?? this.isFavorite,
+      bedTime: bedTime ?? this.bedTime,
+      wakeTime: wakeTime ?? this.wakeTime,
+      dreamVividness: dreamVividness ?? this.dreamVividness,
     );
   }
 
@@ -111,6 +129,9 @@ class Dream {
       'category': category,
       'audio_file_path': audioFilePath,
       'is_favorite': isFavorite ? 1 : 0,
+      'bed_time': bedTime?.toIso8601String(),
+      'wake_time': wakeTime?.toIso8601String(),
+      'dream_vividness': dreamVividness,
     };
   }
 
@@ -133,6 +154,10 @@ class Dream {
       category: map['category'],
       audioFilePath: map['audio_file_path'],
       isFavorite: map['is_favorite'] == 1,
+      bedTime: map['bed_time'] != null ? DateTime.parse(map['bed_time']) : null,
+      wakeTime:
+          map['wake_time'] != null ? DateTime.parse(map['wake_time']) : null,
+      dreamVividness: map['dream_vividness'],
     );
   }
 
@@ -183,6 +208,52 @@ class Dream {
 
   int get wordCount =>
       content.split(RegExp(r'\s+')).where((word) => word.isNotEmpty).length;
+
+  // New sleep-related utility getters
+  Duration? get sleepDuration {
+    if (bedTime != null && wakeTime != null) {
+      return wakeTime!.difference(bedTime!);
+    }
+    return null;
+  }
+
+  String? get sleepDurationFormatted {
+    final duration = sleepDuration;
+    if (duration != null) {
+      final hours = duration.inHours;
+      final minutes = duration.inMinutes.remainder(60);
+      return '${hours}h ${minutes}m';
+    }
+    return null;
+  }
+
+  String get dreamVividnessLabel {
+    if (dreamVividness == null) return 'Not rated';
+    const labels = [
+      'Very Vague',
+      'Vague',
+      'Moderate',
+      'Vivid',
+      'Extremely Vivid'
+    ];
+    if (dreamVividness! < 1 || dreamVividness! > 5) return 'Unknown';
+    return labels[dreamVividness! - 1];
+  }
+
+  // Estimate what sleep phase this dream occurred in
+  String get estimatedSleepPhase {
+    if (bedTime == null || wakeTime == null) return 'Unknown';
+
+    final sleepDur = sleepDuration!;
+    final dreamTime = dreamDate.difference(bedTime!);
+    final percentThroughSleep = dreamTime.inMinutes / sleepDur.inMinutes;
+
+    if (percentThroughSleep < 0.2) return 'Early Sleep';
+    if (percentThroughSleep < 0.4) return 'Light Sleep';
+    if (percentThroughSleep < 0.7) return 'Deep Sleep';
+    if (percentThroughSleep < 0.9) return 'REM Sleep';
+    return 'Wake Transition';
+  }
 
   // Validation
   bool get isValid {

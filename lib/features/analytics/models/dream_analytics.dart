@@ -13,6 +13,7 @@ class DreamAnalytics {
   final List<FrequencyDataPoint> dreamFrequency;
   final List<SleepQualityDataPoint> sleepQualityTrend;
   final Map<String, dynamic> insights;
+  final SleepPatternAnalysis sleepPatterns;
 
   const DreamAnalytics({
     required this.totalDreams,
@@ -25,6 +26,7 @@ class DreamAnalytics {
     required this.dreamFrequency,
     required this.sleepQualityTrend,
     required this.insights,
+    required this.sleepPatterns,
   });
 
   // Helper getters for displaying data
@@ -133,6 +135,86 @@ class DreamInsight {
     required this.title,
     required this.description,
     required this.type,
+    required this.icon,
+  });
+}
+
+// New sleep pattern analysis models
+class SleepPatternAnalysis {
+  final SleepQualityCorrelation qualityCorrelation;
+  final DreamTimingAnalysis timingAnalysis;
+  final DreamRecallCorrelation recallCorrelation;
+  final List<SleepInsight> sleepInsights;
+
+  const SleepPatternAnalysis({
+    required this.qualityCorrelation,
+    required this.timingAnalysis,
+    required this.recallCorrelation,
+    required this.sleepInsights,
+  });
+}
+
+class SleepQualityCorrelation {
+  final double
+      correlationCoefficient; // -1 to 1, correlation between sleep quality and dream mood
+  final Map<int, double>
+      sleepQualityToMoodMap; // Sleep quality (1-5) -> Average mood
+  final Map<int, double>
+      sleepQualityToVividnessMap; // Sleep quality -> Average vividness
+  final String interpretation; // Human-readable interpretation
+
+  const SleepQualityCorrelation({
+    required this.correlationCoefficient,
+    required this.sleepQualityToMoodMap,
+    required this.sleepQualityToVividnessMap,
+    required this.interpretation,
+  });
+}
+
+class DreamTimingAnalysis {
+  final Map<int, int> dreamsByHour; // Hour (0-23) -> Dream count
+  final int mostCommonHour;
+  final Map<String, int> dreamsBySleepPhase; // Sleep phase -> Count
+  final double averageSleepDuration;
+  final String optimalSleepDuration;
+
+  const DreamTimingAnalysis({
+    required this.dreamsByHour,
+    required this.mostCommonHour,
+    required this.dreamsBySleepPhase,
+    required this.averageSleepDuration,
+    required this.optimalSleepDuration,
+  });
+}
+
+class DreamRecallCorrelation {
+  final Map<int, double>
+      sleepQualityToRecallRate; // Sleep quality -> Dream recall percentage
+  final Map<int, double>
+      sleepDurationToRecallRate; // Sleep duration (hours) -> Recall rate
+  final double optimalSleepDurationForRecall;
+  final List<String> recallFactors; // Factors that improve dream recall
+
+  const DreamRecallCorrelation({
+    required this.sleepQualityToRecallRate,
+    required this.sleepDurationToRecallRate,
+    required this.optimalSleepDurationForRecall,
+    required this.recallFactors,
+  });
+}
+
+class SleepInsight {
+  final String title;
+  final String description;
+  final String actionItem;
+  final double confidence; // 0-1, how confident we are in this insight
+  final IconData icon;
+
+  const SleepInsight({
+    required this.title,
+    required this.description,
+    required this.actionItem,
+    required this.confidence,
     required this.icon,
   });
 }
