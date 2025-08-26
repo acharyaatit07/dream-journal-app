@@ -6,6 +6,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../analytics/screens/analytics_screen.dart';
 import '../models/dream.dart';
 import '../services/dreams_provider.dart';
+import 'enhanced_dream_entry_screen.dart';
 
 class DreamsHomeScreen extends ConsumerWidget {
   const DreamsHomeScreen({super.key});
@@ -49,7 +50,7 @@ class DreamsHomeScreen extends ConsumerWidget {
           if (dreams.isEmpty) {
             return _buildEmptyState(context, ref);
           }
-          return _buildDreamsList(dreams);
+          return _buildDreamsList(context, dreams);
         },
         loading: () => const Center(
           child: CircularProgressIndicator(),
@@ -115,7 +116,7 @@ class DreamsHomeScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
-            onPressed: () => _showAddDreamDialog(context, ref),
+            onPressed: () => _navigateToAddDream(context),
             icon: const Icon(Icons.add),
             label: const Text('Add Your First Dream'),
           ),
@@ -129,13 +130,16 @@ class DreamsHomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDreamsList(List<Dream> dreams) {
+  Widget _buildDreamsList(BuildContext context, List<Dream> dreams) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: dreams.length,
       itemBuilder: (context, index) {
         final dream = dreams[index];
-        return _DreamCard(dream: dream);
+        return _DreamCard(
+          dream: dream,
+          onTap: () => _navigateToEditDream(context, dream),
+        );
       },
     );
   }
@@ -285,12 +289,34 @@ class DreamsHomeScreen extends ConsumerWidget {
       ref.read(dreamsProvider.notifier).addDream(dream);
     }
   }
+
+  void _navigateToAddDream(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const EnhancedDreamEntryScreen(),
+      ),
+    );
+  }
+
+  void _navigateToEditDream(BuildContext context, Dream dream) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EnhancedDreamEntryScreen(dreamToEdit: dream),
+      ),
+    );
+  }
 }
 
 class _DreamCard extends ConsumerWidget {
   final Dream dream;
+  final VoidCallback? onTap;
 
-  const _DreamCard({required this.dream});
+  const _DreamCard({
+    required this.dream,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -299,9 +325,7 @@ class _DreamCard extends ConsumerWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: InkWell(
-        onTap: () {
-          // TODO: Navigate to dream detail
-        },
+        onTap: onTap, // Use the callback passed from parent
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
