@@ -1,198 +1,228 @@
-// lib/core/services/database_service.dart
+// Replace your lib/core/services/database_service.dart with this:
 
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import '../constants/app_constants.dart';
-import '../../features/dreams/models/dream.dart';
 
 class DatabaseService {
-  static final DatabaseService _instance = DatabaseService._internal();
-  factory DatabaseService() => _instance;
-  DatabaseService._internal();
+  static const String _databaseName = 'dream_journal.db';
+  static const int _databaseVersion = 4; // Bump version
+  static const String tableDreams = 'dreams';
+
+  DatabaseService._privateConstructor();
+  static final DatabaseService _instance =
+      DatabaseService._privateConstructor();
+  static DatabaseService get instance => _instance;
 
   static Database? _database;
 
   Future<Database> get database async {
     if (_database != null) return _database!;
+
     _database = await _initDatabase();
     return _database!;
   }
 
   Future<Database> _initDatabase() async {
-    String path = join(await getDatabasesPath(), AppConstants.databaseName);
+    final databasesPath = await getDatabasesPath();
+    final path = join(databasesPath, _databaseName);
+
+    // For debugging
+    debugPrint('🗄️ Database path: $path');
+    debugPrint('🌐 Platform: ${kIsWeb ? "Web" : "Mobile"}');
 
     return await openDatabase(
       path,
-      version: AppConstants.databaseVersion,
-      onCreate: _createDatabase,
+      version: _databaseVersion,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+      onOpen: _onOpen,
     );
   }
 
-  Future<void> _createDatabase(Database db, int version) async {
+  Future<void> _onCreate(Database db, int version) async {
+    debugPrint('📝 Creating new database with version $version');
+
     await db.execute('''
-      CREATE TABLE ${AppConstants.dreamsTable} (
+      CREATE TABLE $tableDreams (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
         content TEXT NOT NULL,
-        dream_date TEXT NOT NULL,
         created_at TEXT NOT NULL,
-        updated_at TEXT,
-        mood_rating INTEGER NOT NULL DEFAULT 5,
-        sleep_quality INTEGER NOT NULL DEFAULT 3,
-        lucidity_level INTEGER NOT NULL DEFAULT 0,
-        tags TEXT,
+        updated_at TEXT NOT NULL,
         category TEXT,
-        audio_file_path TEXT,
-        is_favorite INTEGER NOT NULL DEFAULT 0,
+        mood_rating INTEGER DEFAULT 5,
+        sleep_quality INTEGER DEFAULT 5,
+        lucidity_level INTEGER DEFAULT 0,
+        tags TEXT,
+        is_favorite INTEGER DEFAULT 0,
         bed_time TEXT,
         wake_time TEXT,
-        dream_vividness INTEGER
+        dream_vividness INTEGER DEFAULT 5
       )
     ''');
+
+    debugPrint('✅ Database table created successfully');
   }
 
-  // CRUD Operations for Dreams
-  Future<String> insertDream(Dream dream) async {
-    final db = await database;
-    await db.insert(
-      AppConstants.dreamsTable,
-      dream.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-    return dream.id;
-  }
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    debugPrint('🔄 Upgrading database from $oldVersion to $newVersion');
 
-  Future<List<Dream>> getAllDreams() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      AppConstants.dreamsTable,
-      orderBy: 'created_at DESC',
-    );
+    // Handle different upgrade paths
+    if (oldVersion < 4) {
+      // Check what columns exist
+      final tableInfo = await db.rawQuery('PRAGMA table_info($tableDreams)');
+      final existingColumns =
+          tableInfo.map((col) => col['name'] as String).toSet();
 
-    return List.generate(maps.length, (i) {
-      return Dream.fromMap(maps[i]);
-    });
-  }
+      debugPrint('📋 Existing columns: $existingColumns');
 
-  Future<Dream?> getDreamById(String id) async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      AppConstants.dreamsTable,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+      // Add missing columns
+      final requiredColumns = {
+        'bed_time': 'TEXT',
+        'wake_time': 'TEXT',
+        'dream_vividness': 'INTEGER DEFAULT 5',
+      };
 
-    if (maps.isNotEmpty) {
-      return Dream.fromMap(maps.first);
+      for (final entry in requiredColumns.entries) {
+        if (!existingColumns.contains(entry.key)) {
+          try {
+            await db.execute(
+                'ALTER TABLE $tableDreams ADD COLUMN ${entry.key} ${entry.value}');
+            debugPrint('✅ Added column: ${entry.key}');
+          } catch (e) {
+            debugPrint('❌ Failed to add ${entry.key}: $e');
+
+            // If ALTER TABLE fails, recreate the table
+            await _recreateTable(db);
+            break;
+          }
+        }
+      }
     }
-    return null;
   }
 
-  Future<void> updateDream(Dream dream) async {
-    final db = await database;
-    await db.update(
-      AppConstants.dreamsTable,
-      dream.toMap(),
-      where: 'id = ?',
-      whereArgs: [dream.id],
-    );
-  }
+  Future<void> _onOpen(Database db) async {
+    debugPrint('🔓 Database opened successfully');
 
-  Future<void> deleteDream(String id) async {
-    final db = await database;
-    await db.delete(
-      AppConstants.dreamsTable,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
+    // Verify table structure
+    final tableInfo = await db.rawQuery('PRAGMA table_info($tableDreams)');
+    final columns = tableInfo.map((col) => col['name'] as String).toList();
+    debugPrint('📋 Current table columns: $columns');
 
-  // Search dreams
-  Future<List<Dream>> searchDreams(String query) async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      AppConstants.dreamsTable,
-      where: 'title LIKE ? OR content LIKE ? OR tags LIKE ?',
-      whereArgs: ['%$query%', '%$query%', '%$query%'],
-      orderBy: 'created_at DESC',
-    );
+    // Check if all required columns exist
+    const requiredColumns = [
+      'id',
+      'title',
+      'content',
+      'created_at',
+      'updated_at',
+      'category',
+      'mood_rating',
+      'sleep_quality',
+      'lucidity_level',
+      'tags',
+      'is_favorite',
+      'bed_time',
+      'wake_time',
+      'dream_vividness'
+    ];
 
-    return List.generate(maps.length, (i) {
-      return Dream.fromMap(maps[i]);
-    });
-  }
+    final missingColumns =
+        requiredColumns.where((col) => !columns.contains(col)).toList();
 
-  // Get dreams by category
-  Future<List<Dream>> getDreamsByCategory(String category) async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      AppConstants.dreamsTable,
-      where: 'category = ?',
-      whereArgs: [category],
-      orderBy: 'created_at DESC',
-    );
-
-    return List.generate(maps.length, (i) {
-      return Dream.fromMap(maps[i]);
-    });
-  }
-
-  // Get favorite dreams
-  Future<List<Dream>> getFavoriteDreams() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      AppConstants.dreamsTable,
-      where: 'is_favorite = ?',
-      whereArgs: [1],
-      orderBy: 'created_at DESC',
-    );
-
-    return List.generate(maps.length, (i) {
-      return Dream.fromMap(maps[i]);
-    });
-  }
-
-  // Analytics queries
-  Future<int> getDreamCount() async {
-    final db = await database;
-    final result =
-        await db.rawQuery('SELECT COUNT(*) FROM ${AppConstants.dreamsTable}');
-    return Sqflite.firstIntValue(result) ?? 0;
-  }
-
-  Future<Map<String, int>> getDreamCategoryCounts() async {
-    final db = await database;
-    final List<Map<String, dynamic>> result = await db.rawQuery('''
-      SELECT category, COUNT(*) as count 
-      FROM ${AppConstants.dreamsTable} 
-      WHERE category IS NOT NULL 
-      GROUP BY category
-    ''');
-
-    Map<String, int> categoryCounts = {};
-    for (var row in result) {
-      categoryCounts[row['category']] = row['count'];
+    if (missingColumns.isNotEmpty) {
+      debugPrint('⚠️ Missing columns detected: $missingColumns');
+      // The onUpgrade should have handled this, but let's be safe
+      await _recreateTable(db);
     }
-    return categoryCounts;
   }
 
-  Future<double> getAverageMoodRating() async {
+  Future<void> _recreateTable(Database db) async {
+    debugPrint('🔨 Recreating table with correct schema');
+
+    // Backup existing data
+    List<Map<String, dynamic>> existingData = [];
+    try {
+      existingData = await db.query(tableDreams);
+      debugPrint('💾 Backed up ${existingData.length} records');
+    } catch (e) {
+      debugPrint('⚠️ Could not backup data: $e');
+    }
+
+    // Drop and recreate table
+    await db.execute('DROP TABLE IF EXISTS $tableDreams');
+    await _onCreate(db, _databaseVersion);
+
+    // Restore data
+    for (final record in existingData) {
+      try {
+        // Only insert columns that exist in the new schema
+        final cleanRecord = <String, dynamic>{};
+        const validColumns = [
+          'id',
+          'title',
+          'content',
+          'created_at',
+          'updated_at',
+          'category',
+          'mood_rating',
+          'sleep_quality',
+          'lucidity_level',
+          'tags',
+          'is_favorite'
+        ];
+
+        for (final col in validColumns) {
+          if (record.containsKey(col)) {
+            cleanRecord[col] = record[col];
+          }
+        }
+
+        await db.insert(tableDreams, cleanRecord);
+      } catch (e) {
+        debugPrint('⚠️ Could not restore record: $e');
+      }
+    }
+
+    debugPrint('✅ Table recreation completed');
+  }
+
+  // CRUD operations
+  Future<int> insertDream(Map<String, dynamic> dream) async {
     final db = await database;
-    final result = await db
-        .rawQuery('SELECT AVG(mood_rating) FROM ${AppConstants.dreamsTable}');
-    return (result.first.values.first as double?) ?? 5.0;
+    return await db.insert(tableDreams, dream,
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  // Close database
+  Future<List<Map<String, dynamic>>> getAllDreams() async {
+    final db = await database;
+    return await db.query(tableDreams, orderBy: 'created_at DESC');
+  }
+
+  Future<Map<String, dynamic>?> getDreamById(String id) async {
+    final db = await database;
+    final results =
+        await db.query(tableDreams, where: 'id = ?', whereArgs: [id]);
+    return results.isNotEmpty ? results.first : null;
+  }
+
+  Future<int> updateDream(Map<String, dynamic> dream) async {
+    final db = await database;
+    return await db
+        .update(tableDreams, dream, where: 'id = ?', whereArgs: [dream['id']]);
+  }
+
+  Future<int> deleteDream(String id) async {
+    final db = await database;
+    return await db.delete(tableDreams, where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<void> close() async {
-    final db = await database;
-    await db.close();
-  }
-
-  // Delete database (for testing)
-  Future<void> deleteDatabase() async {
-    String path = join(await getDatabasesPath(), AppConstants.databaseName);
-    await databaseFactory.deleteDatabase(path);
-    _database = null;
+    final db = _database;
+    if (db != null) {
+      await db.close();
+      _database = null;
+    }
   }
 }

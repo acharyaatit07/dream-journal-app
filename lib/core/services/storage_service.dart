@@ -30,46 +30,91 @@ class StorageServiceFactory {
 }
 
 class DatabaseServiceImpl implements StorageService {
-  final DatabaseService _databaseService = DatabaseService();
+  final DatabaseService _databaseService = DatabaseService.instance;
 
   @override
-  Future<String> insertDream(Dream dream) =>
-      _databaseService.insertDream(dream);
+  Future<String> insertDream(Dream dream) async {
+    // Convert the int result to String (the dream ID)
+    await _databaseService.insertDream(dream.toMap());
+    return dream.id; // Return the dream ID as String
+  }
 
   @override
-  Future<List<Dream>> getAllDreams() => _databaseService.getAllDreams();
+  Future<List<Dream>> getAllDreams() async {
+    final dreamsData = await _databaseService.getAllDreams();
+    return dreamsData.map((data) => Dream.fromMap(data)).toList();
+  }
 
   @override
-  Future<Dream?> getDreamById(String id) => _databaseService.getDreamById(id);
+  Future<Dream?> getDreamById(String id) async {
+    final dreamData = await _databaseService.getDreamById(id);
+    return dreamData != null ? Dream.fromMap(dreamData) : null;
+  }
 
   @override
-  Future<void> updateDream(Dream dream) => _databaseService.updateDream(dream);
+  Future<void> updateDream(Dream dream) async {
+    await _databaseService.updateDream(dream.toMap());
+  }
 
   @override
-  Future<void> deleteDream(String id) => _databaseService.deleteDream(id);
+  Future<void> deleteDream(String id) async {
+    await _databaseService.deleteDream(id);
+  }
 
   @override
-  Future<List<Dream>> searchDreams(String query) =>
-      _databaseService.searchDreams(query);
+  Future<List<Dream>> searchDreams(String query) async {
+    // Implement search using the database service
+    final allDreams = await getAllDreams();
+    return allDreams.where((dream) {
+      return dream.title.toLowerCase().contains(query.toLowerCase()) ||
+          dream.content.toLowerCase().contains(query.toLowerCase()) ||
+          (dream.category?.toLowerCase().contains(query.toLowerCase()) ??
+              false) ||
+          dream.tags
+              .any((tag) => tag.toLowerCase().contains(query.toLowerCase()));
+    }).toList();
+  }
 
   @override
-  Future<List<Dream>> getDreamsByCategory(String category) =>
-      _databaseService.getDreamsByCategory(category);
+  Future<List<Dream>> getDreamsByCategory(String category) async {
+    final allDreams = await getAllDreams();
+    return allDreams.where((dream) => dream.category == category).toList();
+  }
 
   @override
-  Future<List<Dream>> getFavoriteDreams() =>
-      _databaseService.getFavoriteDreams();
+  Future<List<Dream>> getFavoriteDreams() async {
+    final allDreams = await getAllDreams();
+    return allDreams.where((dream) => dream.isFavorite).toList();
+  }
 
   @override
-  Future<int> getDreamCount() => _databaseService.getDreamCount();
+  Future<int> getDreamCount() async {
+    final dreams = await getAllDreams();
+    return dreams.length;
+  }
 
   @override
-  Future<Map<String, int>> getDreamCategoryCounts() =>
-      _databaseService.getDreamCategoryCounts();
+  Future<Map<String, int>> getDreamCategoryCounts() async {
+    final dreams = await getAllDreams();
+    final Map<String, int> categoryCounts = {};
+
+    for (final dream in dreams) {
+      final category = dream.category ?? 'Uncategorized';
+      categoryCounts[category] = (categoryCounts[category] ?? 0) + 1;
+    }
+
+    return categoryCounts;
+  }
 
   @override
-  Future<double> getAverageMoodRating() =>
-      _databaseService.getAverageMoodRating();
+  Future<double> getAverageMoodRating() async {
+    final dreams = await getAllDreams();
+    if (dreams.isEmpty) return 0.0;
+
+    final totalMood =
+        dreams.fold<int>(0, (sum, dream) => sum + dream.moodRating);
+    return totalMood / dreams.length;
+  }
 }
 
 class WebStorageServiceImpl implements StorageService {

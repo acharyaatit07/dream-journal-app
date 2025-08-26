@@ -87,7 +87,7 @@ class DreamsHomeScreen extends ConsumerWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddDreamDialog(context, ref),
+        onPressed: () => _navigateToAddDream(context),
         child: const Icon(Icons.add),
       ),
     );
